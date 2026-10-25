@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Watt Conta</title>
+<meta name="theme-color" content="#1E242B">
+<meta name="description" content="Descubra quanto cada aparelho pesa na sua conta de luz.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@600;800&family=Chivo+Mono:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: coluna única de celular — mostrador estilo relógio de luz no topo, lista de aparelhos, ranking de consumo, dicas com economia calculada */
+:root{
+  --bg:#EFF1F3; --surface:#FFFFFF; --ink:#1E242B; --muted:#5B6672; --line:#D8DDE2;
+  --amber:#B86E00; --amber-strong:#8F5400; --amber-soft:#F6E3C2; --on-amber:#FFFFFF; --good:#2E7D4F;
+  --meter:#1E242B; --meter-ink:#F4C46A;
+  --display:"Chivo","Segoe UI",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  --mono:"Chivo Mono",ui-monospace,"Cascadia Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13171B; --surface:#1B2127; --ink:#E7EBEF; --muted:#9AA6B2; --line:#2C343C;
+  --amber:#E9A23B; --amber-strong:#F4C46A; --amber-soft:#3A2C14; --on-amber:#1B1408; --good:#62C08A;
+  --meter:#0B0E11; --meter-ink:#F4C46A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13171B; --surface:#1B2127; --ink:#E7EBEF; --muted:#9AA6B2; --line:#2C343C;
+  --amber:#E9A23B; --amber-strong:#F4C46A; --amber-soft:#3A2C14; --on-amber:#1B1408; --good:#62C08A;
+  --meter:#0B0E11; --meter-ink:#F4C46A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px}
+.app{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2{font-family:var(--display);margin:0;line-height:1.15;text-wrap:balance}
+h1{font-size:1.6rem;font-weight:800}
+h2{font-size:1.1rem;font-weight:800}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.note{font-size:.85rem;color:var(--muted);margin:0;line-height:1.45}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ghost{background:none;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.9rem}
+.primary{background:var(--amber);color:var(--on-amber);border:0;border-radius:12px;padding:13px 16px;font-weight:700}
+.linkbtn{background:none;border:0;padding:4px;color:var(--amber-strong);font-weight:700;font-size:.92rem}
+input[type=number],input[type=text],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 11px;width:100%;min-width:0}
+
+/* Mostrador */
+.meter{background:var(--meter);color:var(--meter-ink);border-radius:16px;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.meter .lab{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+.digits{font-family:var(--mono);font-weight:700;font-size:1.9rem;line-height:1.05;letter-spacing:.02em}
+.digits small{font-size:.9rem;font-weight:500;opacity:.8}
+.meter .wide{grid-column:1/-1;border-top:1px dashed color-mix(in srgb,var(--meter-ink) 35%,transparent);padding-top:10px;font-size:.9rem}
+.banner{background:var(--amber-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:.95rem}
+
+/* Lista de aparelhos */
+ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+ul.items li{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+ul.items li:last-child{border-bottom:0}
+.iname{font-weight:700;min-width:0;overflow-wrap:anywhere}
+.idet{font-size:.8rem;color:var(--muted)}
+.icost{font-family:var(--mono);font-weight:700;text-align:right;white-space:nowrap}
+.iact{display:flex;gap:2px}
+.iact button{background:none;border:0;color:var(--muted);padding:6px 8px;font-size:.85rem}
+.empty{color:var(--muted);margin:0}
+
+/* Formulário de aparelho */
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form .full{grid-column:1/-1}
+.form label{display:flex;flex-direction:column;gap:5px;font-size:.85rem;font-weight:700;min-width:0}
+.form label small{font-weight:400;color:var(--muted)}
+.unit{display:grid;grid-template-columns:1fr 84px;gap:6px}
+.preview{font-size:.9rem;background:var(--bg);border-radius:10px;padding:10px 12px}
+
+/* Ranking */
+.rank{display:flex;flex-direction:column;gap:10px}
+.rk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:baseline}
+.rk .n{font-size:.92rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk .v{font-family:var(--mono);font-size:.85rem;color:var(--muted);white-space:nowrap}
+.rk .track{grid-column:1/-1;height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.rk .bar{height:100%;background:var(--amber);border-radius:5px}
+
+/* Dicas */
+.tips{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.tips li{border-left:3px solid var(--good);padding:2px 0 2px 12px}
+.tips b.save{color:var(--good)}
+
+.copied{font-size:.85rem;color:var(--good)}
+textarea{width:100%;min-height:130px;font:13px/1.4 var(--mono);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+@media (max-width:360px){.digits{font-size:1.55rem}.form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+
+<div class="app">
+  <header>
+    <div class="eyebrow">Consumo de energia da casa</div>
+    <h1>Watt Conta</h1>
+  </header>
+
+  <section class="meter" aria-label="Resumo do consumo estimado">
+    <div><div class="lab">Consumo por mês</div><div class="digits num" id="mKwh">0 <small>kWh</small></div></div>
+    <div><div class="lab">Custo estimado</div><div class="digits num" id="mCost">R$ 0</div></div>
+    <div class="wide num" id="mBill"></div>
+  </section>
+
+  <div class="banner" id="exampleBanner" hidden>
+    <span><b>Esta é uma casa de exemplo.</b> Os aparelhos abaixo mostram como o app funciona. Troque pelos aparelhos da sua casa.</span>
+    <div class="row"><button class="primary" type="button" id="startOwn">Começar a minha casa</button></div>
+  </div>
+
+  <section class="panel" aria-labelledby="aT">
+    <div class="row" style="justify-content:space-between"><h2 id="aT">Aparelhos</h2><span class="note num" id="countLine"></span></div>
+    <ul class="items" id="items"></ul>
+    <p class="empty" id="itemsEmpty" hidden>Nenhum aparelho ainda. Adicione o chuveiro primeiro: ele costuma ser o maior gasto da casa.</p>
+    <button class="ghost" type="button" id="openForm">+ Adicionar aparelho</button>
+
+    <form class="form" id="itemForm" hidden novalidate>
+      <label class="full" for="fPreset">Aparelho
+        <select id="fPreset"></select>
+      </label>
+      <label class="full" for="fName">Nome <small>Ex.: TV da sala</small>
+        <input type="text" id="fName" maxlength="40">
+      </label>
+      <label for="fW">Potência (W) <small>Na etiqueta ou no manual</small>
+        <input type="number" id="fW" inputmode="numeric" min="1" max="20000" step="1">
+      </label>
+      <label for="fQty">Quantidade
+        <input type="number" id="fQty" inputmode="numeric" min="1" max="50" step="1" value="1">
+      </label>
+      <label for="fTime">Tempo ligado por dia
+        <span class="unit"><input type="number" id="fTime" inputmode="decimal" min="0" max="1440" step="1"><select id="fUnit" aria-label="Unidade de tempo"><option value="min">min</option><option value="h">horas</option></select></span>
+      </label>
+      <label for="fDays">Dias de uso no mês
+        <input type="number" id="fDays" inputmode="numeric" min="1" max="31" step="1" value="30">
+      </label>
+      <label class="full" for="fKwh" id="kwhWrap" hidden>Consumo pela etiqueta do Inmetro (kWh/mês)
+        <input type="number" id="fKwh" inputmode="decimal" min="1" max="500" step="0.1">
+      </label>
+      <div class="preview full num" id="fPreview"></div>
+      <div class="row full">
+        <button class="primary" type="submit" id="fSave">Adicionar</button>
+        <button class="linkbtn" type="button" id="fCancel">Cancelar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="rT">
+    <h2 id="rT">Quem mais gasta</h2>
+    <div class="rank" id="rank"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="tT">
+    <h2 id="tT">Como economizar</h2>
+    <ul class="tips" id="tips"></ul>
+  </section>
+
+  <section class="panel" aria-labelledby="cT">
+    <h2 id="cT">Minha conta de luz</h2>
+    <p class="note">Pegue a última conta. Divida o valor total pelo consumo em kWh para achar a tarifa real da sua casa, já com impostos e bandeira.</p>
+    <div class="form">
+      <label for="cKwh">Consumo na conta (kWh)
+        <input type="number" id="cKwh" inputmode="numeric" min="0" max="5000" step="1" placeholder="Ex.: 180">
+      </label>
+      <label for="cVal">Valor total da conta (R$)
+        <input type="number" id="cVal" inputmode="decimal" min="0" max="10000" step="0.01" placeholder="Ex.: 165,00">
+      </label>
+      <label class="full" for="cTar">Tarifa usada no cálculo (R$ por kWh)
+        <input type="number" id="cTar" inputmode="decimal" min="0.1" max="5" step="0.01">
+      </label>
+    </div>
+    <p class="note num" id="tarNote"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="eT">
+    <h2 id="eT">Resumo</h2>
+    <div class="row">
+      <button class="ghost" type="button" id="exportBtn">Copiar meu resumo</button>
+      <button class="ghost" type="button" id="resetBtn" style="color:var(--amber-strong);border-color:var(--amber-strong)">Apagar meus dados</button>
+    </div>
+    <div id="exportBox" hidden>
+      <p class="note" style="margin-bottom:8px">Copie e envie para quem está acompanhando o projeto. O texto tem só os aparelhos e os valores, sem nome nem endereço.</p>
+      <textarea id="exportText" readonly aria-label="Resumo para copiar"></textarea>
+      <span class="copied" id="copiedMsg" hidden>Resumo copiado.</span>
+    </div>
+    <div id="resetConfirm" hidden class="banner">
+      <span>Isso apaga a lista de aparelhos e a conta deste aparelho. Não dá para desfazer.</span>
+      <div class="row"><button class="ghost" type="button" id="resetYes" style="color:var(--amber-strong);border-color:var(--amber-strong)">Sim, apagar</button><button class="ghost" type="button" id="resetNo">Cancelar</button></div>
+    </div>
+  </section>
+
+  <p class="note">Os valores são estimativas: o consumo real varia com o modelo do aparelho, a estação do ano e a forma de uso. Seus dados ficam só neste aparelho.</p>
+</div>
+
+<script>
+(function(){
+  const KEY='wattconta.v1', TARIFA_PADRAO=0.95;
+  const $=id=>document.getElementById(id);
+  const brl=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2});
+  const n1=v=>v.toLocaleString('pt-BR',{maximumFractionDigits:1});
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // Potências típicas (W) e uso típico. kwh = aparelho que se mede pela etiqueta (liga e desliga sozinho).
+  const PRESETS=[
+    {id:'chuveiro',n:'Chuveiro elétrico',w:5500,min:40,d:30},
+    {id:'geladeira',n:'Geladeira',kwh:35},
+    {id:'freezer',n:'Freezer',kwh:45},
+    {id:'tv',n:'TV LED',w:100,min:300,d:30},
+    {id:'lampled',n:'Lâmpada LED',w:9,min:300,d:30,q:6},
+    {id:'lampflu',n:'Lâmpada fluorescente',w:20,min:300,d:30},
+    {id:'lampinc',n:'Lâmpada incandescente',w:60,min:300,d:30},
+    {id:'lavar',n:'Máquina de lavar roupa',w:500,min:60,d:8},
+    {id:'ferro',n:'Ferro de passar',w:1000,min:60,d:4},
+    {id:'micro',n:'Micro-ondas',w:1200,min:15,d:30},
+    {id:'airfryer',n:'Air fryer',w:1500,min:30,d:15},
+    {id:'forno',n:'Forno elétrico',w:1500,min:30,d:8},
+    {id:'ar',n:'Ar-condicionado 9.000 BTU',w:900,min:480,d:30},
+    {id:'ventilador',n:'Ventilador',w:100,min:480,d:30},
+    {id:'pc',n:'Computador de mesa',w:200,min:240,d:30},
+    {id:'note',n:'Notebook',w:65,min:240,d:30},
+    {id:'game',n:'Videogame',w:150,min:120,d:20},
+    {id:'roteador',n:'Roteador de internet',w:10,min:1440,d:30},
+    {id:'celular',n:'Carregador de celular',w:10,min:180,d:30},
+    {id:'secador',n:'Secador de cabelo',w:1200,min:10,d:30},
+    {id:'outro',n:'Outro aparelho',w:100,min:60,d:30}
+  ];
+  const P=Object.fromEntries(PRESETS.map(p=>[p.id,p]));
+
+  const EXEMPLO={example:true,tarifa:TARIFA_PADRAO,conta:{kwh:null,val:null},items:[
+    {p:'chuveiro',n:'Chuveiro',w:5500,min:40,d:30,q:1},
+    {p:'geladeira',n:'Geladeira',kwh:35,q:1},
+    {p:'tv',n:'TV da sala',w:100,min:300,d:30,q:1},
+    {p:'lampled',n:'Lâmpadas LED',w:9,min:300,d:30,q:6},
+    {p:'lavar',n:'Máquina de lavar',w:500,min:60,d:8,q:1},
+    {p:'ferro',n:'Ferro de passar',w:1000,min:60,d:4,q:1},
+    {p:'micro',n:'Micro-ondas',w:1200,min:15,d:30,q:1},
+    {p:'celular',n:'Carregadores de celular',w:10,min:180,d:30,q:3}
+  ]};
+
+  let mem=null;
+  function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s);}catch(e){}return mem;}
+  function save(){mem=state;try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  let state=load()||JSON.parse(JSON.stringify(EXEMPLO));
+
+  const kwhMes=it=>it.kwh!=null?it.kwh*(it.q||1):(it.w*(it.q||1)*(it.min/60)*it.d)/1000;
+  const tarifa=()=>state.tarifa||TARIFA_PADRAO;
+  const tempoTxt=m=>m>=60?(n1(m/60)+' h/dia'):(Math.round(m)+' min/dia');
+
+  /* ---------- Formulário ---------- */
+  let editIdx=null;
+  $('fPreset').innerHTML=PRESETS.map(p=>`<option value="${p.id}">${p.n}</option>`).join('');
+  function fillPreset(id,keepName){
+    const p=P[id]; $('kwhWrap').hidden=p.kwh==null;
+    ['fW','fTime','fDays'].forEach(x=>{$(x).disabled=p.kwh!=null; $(x).closest('label').style.opacity=p.kwh!=null?.45:1;});
+    if(!keepName) $('fName').value=p.id==='outro'?'':p.n;
+    if(p.kwh!=null){$('fKwh').value=p.kwh;}
+    else{$('fW').value=p.w; setTime(p.min); $('fDays').value=p.d;}
+    $('fQty').value=p.q||1; preview();
+  }
+  function setTime(min){ if(min>=60 && min%30===0){$('fUnit').value='h';$('fTime').value=min/60;} else {$('fUnit').value='min';$('fTime').value=min;} }
+  function readForm(){
+    const p=P[$('fPreset').value], q=Math.max(1,parseInt($('fQty').value,10)||1);
+    const name=$('fName').value.trim()||p.n;
+    if(p.kwh!=null){const k=parseFloat($('fKwh').value); return (k>0)?{p:p.id,n:name,kwh:k,q}:null;}
+    const w=parseFloat($('fW').value), t=parseFloat($('fTime').value), d=parseInt($('fDays').value,10);
+    const min=$('fUnit').value==='h'?t*60:t;
+    if(!(w>0)||!(min>0)||min>1440||!(d>=1&&d<=31)) return null;
+    return {p:p.id,n:name,w,min,d,q};
+  }
+  function preview(){
+    const it=readForm(); const box=$('fPreview');
+    if(!it){box.textContent='Preencha potência, tempo (até 24 h) e dias para ver o gasto.';return;}
+    const k=kwhMes(it); box.innerHTML=`Gasta cerca de <b>${n1(k)} kWh</b> por mês, ou <b>${brl(k*tarifa())}</b>.`;
+  }
+  ['fW','fTime','fUnit','fDays','fQty','fKwh'].forEach(x=>$(x).addEventListener('input',preview));
+  $('fPreset').addEventListener('change',()=>fillPreset($('fPreset').value,false));
+  function openForm(idx){
+    editIdx=idx; const f=$('itemForm'); f.hidden=false; $('openForm').hidden=true;
+    if(idx==null){ $('fPreset').value='chuveiro'; fillPreset('chuveiro',false); $('fSave').textContent='Adicionar'; }
+    else{ const it=state.items[idx]; $('fPreset').value=P[it.p]?it.p:'outro'; fillPreset($('fPreset').value,true); $('fName').value=it.n; $('fQty').value=it.q||1;
+      if(it.kwh!=null) $('fKwh').value=it.kwh; else {$('fW').value=it.w; setTime(it.min); $('fDays').value=it.d;}
+      $('fSave').textContent='Salvar'; preview(); }
+    $('fName').focus({preventScroll:true}); f.scrollIntoView({block:'nearest'});
+  }
+  function closeForm(){ $('itemForm').hidden=true; $('openForm').hidden=false; editIdx=null; }
+  $('openForm').addEventListener('click',()=>openForm(null));
+  $('fCancel').addEventListener('click',closeForm);
+  $('itemForm').addEventListener('submit',e=>{
+    e.preventDefault(); const it=readForm(); if(!it){preview();return;}
+    if(editIdx==null) state.items.push(it); else state.items[editIdx]=it;
+    save(); closeForm(); render();
+  });
+  $('items').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return; const i=+b.dataset.i;
+    if(b.dataset.a==='del'){ state.items.splice(i,1); save(); render(); }
+    if(b.dataset.a==='edit') openForm(i);
+  });
+  $('startOwn').addEventListener('click',()=>{ state={example:false,tarifa:tarifa(),conta:{kwh:null,val:null},items:[]}; save(); render(); openForm(null); });
+
+  /* ---------- Conta de luz ---------- */
+  function syncConta(){
+    const k=parseFloat($('cKwh').value), v=parseFloat($('cVal').value);
+    state.conta={kwh:k>0?k:null,val:v>0?v:null};
+    if(k>0&&v>0){ state.tarifa=Math.round(v/k*100)/100; $('cTar').value=state.tarifa.toFixed(2); }
+    else { const t=parseFloat($('cTar').value); if(t>0) state.tarifa=t; }
+    save(); render(true);
+  }
+  ['cKwh','cVal'].forEach(x=>$(x).addEventListener('input',syncConta));
+  $('cTar').addEventListener('input',()=>{const t=parseFloat($('cTar').value); if(t>0){state.tarifa=t; save(); render(true);}});
+
+  /* ---------- Dicas ---------- */
+  function dicas(){
+    const t=tarifa(), out=[];
+    state.items.forEach(it=>{
+      if(it.p==='chuveiro' && it.min>=10){ const red=Math.min(10, Math.round(it.min/4)); const k=it.w*(it.q||1)*(red/60)*it.d/1000;
+        out.push({s:k*t,h:`Diminua o banho em ${red} min por dia no total da casa, ou use a posição verão nos dias quentes.`,k}); }
+      if(it.p==='lampinc' || it.p==='lampflu'){ const k=kwhMes(it)-kwhMes({...it,w:9});
+        out.push({s:k*t,h:`Troque ${it.q>1?'as '+it.q+' lâmpadas':'a lâmpada'} "${esc(it.n)}" por LED de 9 W.`,k}); }
+      if(it.p==='ar' && it.min>120){ const k=it.w*(it.q||1)*(2)*it.d/1000;
+        out.push({s:k*t,h:`Use o ar-condicionado 2 horas a menos por dia e mantenha portas e janelas fechadas.`,k}); }
+      if(it.p==='ferro' && it.d>2){ const k=kwhMes(it)-kwhMes({...it,d:2});
+        out.push({s:k*t,h:`Junte as roupas e passe tudo de uma vez, 2 vezes no mês.`,k}); }
+      if((it.p==='tv'||it.p==='pc'||it.p==='game') && it.min>=180){ const k=it.w*(it.q||1)*1*it.d/1000;
+        out.push({s:k*t,h:`Desligue "${esc(it.n)}" quando ninguém estiver usando: 1 hora a menos por dia.`,k}); }
+    });
+    out.sort((a,b)=>b.s-a.s);
+    const html=out.slice(0,4).map(d=>`<li>${d.h} <b class="save num">Economia de ${brl(d.s)} por mês</b> <span class="note num">(${n1(d.k)} kWh)</span></li>`);
+    html.push(`<li>Tire da tomada carregadores e aparelhos em modo de espera (luz acesa) quando não estiver usando.</li>`);
+    html.push(`<li>Na hora de comprar, prefira aparelhos com selo Procel e classe A na etiqueta do Inmetro.</li>`);
+    $('tips').innerHTML=html.join('');
+  }
+
+  /* ---------- Exportar / apagar ---------- */
+  function resumo(){
+    const t=tarifa(), tot=state.items.reduce((s,i)=>s+kwhMes(i),0), L=['Watt Conta — resumo'];
+    L.push('Tarifa: '+brl(t)+' por kWh');
+    [...state.items].sort((a,b)=>kwhMes(b)-kwhMes(a)).forEach(i=>L.push(`${i.n}${i.q>1?' (x'+i.q+')':''}: ${n1(kwhMes(i))} kWh | ${brl(kwhMes(i)*t)}`));
+    L.push('Total estimado: '+n1(tot)+' kWh | '+brl(tot*t)+' por mês');
+    if(state.conta&&state.conta.kwh) L.push('Conta real: '+n1(state.conta.kwh)+' kWh'+(state.conta.val?' | '+brl(state.conta.val):''));
+    return L.join('\n');
+  }
+  $('exportBtn').addEventListener('click',()=>{
+    $('exportBox').hidden=false; const ta=$('exportText'); ta.value=resumo(); $('copiedMsg').hidden=true;
+    try{navigator.clipboard.writeText(ta.value).then(()=>{$('copiedMsg').hidden=false;},()=>{ta.focus();ta.select();});}catch(e){ta.focus();ta.select();}
+  });
+  $('resetBtn').addEventListener('click',()=>{$('resetConfirm').hidden=false;});
+  $('resetNo').addEventListener('click',()=>{$('resetConfirm').hidden=true;});
+  $('resetYes').addEventListener('click',()=>{ mem=null; try{localStorage.removeItem(KEY);}catch(e){} state={example:false,tarifa:TARIFA_PADRAO,conta:{kwh:null,val:null},items:[]}; save(); $('resetConfirm').hidden=true; $('exportBox').hidden=true; $('cKwh').value='';$('cVal').value=''; render(); });
+
+  /* ---------- Render ---------- */
+  function render(fromConta){
+    const t=tarifa(), list=state.items, tot=list.reduce((s,i)=>s+kwhMes(i),0);
+    $('exampleBanner').hidden=!state.example;
+    $('mKwh').innerHTML=Math.round(tot).toLocaleString('pt-BR')+' <small>kWh</small>';
+    $('mCost').textContent=brl(tot*t);
+    const c=state.conta||{}; let bill;
+    if(c.kwh){ const dif=tot-c.kwh, pct=Math.round(tot/c.kwh*100);
+      bill=`Sua conta: ${Math.round(c.kwh).toLocaleString('pt-BR')} kWh. A lista explica ${pct}% dela`+(pct<85?'. Falta algum aparelho?':(pct>115?'. Algum tempo de uso pode estar alto demais.':'.'));
+    } else bill='Informe o consumo da sua conta de luz abaixo para comparar.';
+    $('mBill').textContent=bill;
+    $('countLine').textContent=list.length+(list.length===1?' aparelho':' aparelhos');
+
+    const order=list.map((it,i)=>({it,i,k:kwhMes(it)}));
+    $('items').innerHTML=order.map(({it,i,k})=>`<li><div><div class="iname">${esc(it.n)}${it.q>1?' <span class="idet">×'+it.q+'</span>':''}</div><div class="idet num">${it.kwh!=null?n1(it.kwh)+' kWh/mês pela etiqueta':(it.w.toLocaleString('pt-BR')+' W · '+tempoTxt(it.min)+' · '+it.d+' dias')}</div></div><div class="icost num">${brl(k*t)}</div><div class="iact"><button type="button" data-a="edit" data-i="${i}" aria-label="Editar ${esc(it.n)}">Editar</button><button type="button" data-a="del" data-i="${i}" aria-label="Remover ${esc(it.n)}">×</button></div></li>`).join('');
+    $('itemsEmpty').hidden=list.length>0;
+
+    const sorted=[...order].sort((a,b)=>b.k-a.k), max=sorted.length?sorted[0].k:1;
+    $('rank').innerHTML=sorted.length? sorted.map(({it,k})=>`<div class="rk" title="${esc(it.n)}: ${n1(k)} kWh, ${brl(k*t)} por mês"><span class="n">${esc(it.n)}</span><span class="v num">${Math.round(k/tot*100)}% · ${n1(k)} kWh</span><div class="track"><div class="bar" style="width:${Math.max(2,k/max*100)}%"></div></div></div>`).join('') : '<p class="empty">O ranking aparece quando houver aparelhos na lista.</p>';
+
+    if(!fromConta){ $('cKwh').value=c.kwh||''; $('cVal').value=c.val||''; $('cTar').value=t.toFixed(2); }
+    $('tarNote').textContent=(c.kwh&&c.val)?`Tarifa da sua conta: ${brl(t)} por kWh, já com impostos.`:`Usando ${brl(t)} por kWh, valor aproximado com impostos. Preencha a conta para usar a tarifa real.`;
+    dicas();
+  }
+  render();
+})();
+</script>
+
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
